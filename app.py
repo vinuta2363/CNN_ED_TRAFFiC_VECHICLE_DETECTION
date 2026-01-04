@@ -8,15 +8,15 @@ import tempfile
 # PAGE CONFIG
 # -------------------------------
 st.set_page_config(
-    page_title="Vehicle Detection using YOLOv8",
+    page_title="Car vs Truck Detection (YOLOv8)",
     layout="centered"
 )
 
-st.title("🚗 Vehicle Detection using YOLOv8")
-st.write("Upload an image to detect **Cars, Buses, and Trucks**")
+st.title("🚗 Car vs Truck Detection using YOLOv8")
+st.write("Upload a traffic image to classify vehicles as **Car** or **Truck**")
 
 # -------------------------------
-# LOAD YOLO MODEL
+# LOAD MODEL
 # -------------------------------
 @st.cache_resource
 def load_model():
@@ -28,27 +28,26 @@ model = load_model()
 # IMAGE UPLOAD
 # -------------------------------
 uploaded_file = st.file_uploader(
-    "Upload an image",
+    "Upload traffic image",
     type=["jpg", "jpeg", "png"]
 )
 
 if uploaded_file is not None:
-    # Read image
     file_bytes = uploaded_file.read()
+
+    # Decode image
     np_img = np.frombuffer(file_bytes, np.uint8)
     img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     st.image(img, caption="Uploaded Image", use_container_width=True)
 
-    # Save to temp file for YOLO
+    # Save image temporarily for YOLO
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         tmp.write(file_bytes)
         img_path = tmp.name
 
-    # -------------------------------
-    # YOLO INFERENCE
-    # -------------------------------
+    # YOLO inference
     results = model(img_path)
 
     # COCO class IDs
@@ -56,20 +55,36 @@ if uploaded_file is not None:
     BUS = 5
     TRUCK = 7
 
-    # Draw detections
+    IMG_AREA = img.shape[0] * img.shape[1]
+
+    # -------------------------------
+    # DRAW DETECTIONS
+    # -------------------------------
     for r in results:
         for box in r.boxes:
             cls = int(box.cls[0])
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            conf = float(box.conf[0])
 
-            if cls in [CAR, BUS]:
-                label = "Car"
-                color = (0, 255, 0)
-            elif cls == TRUCK:
-                label = "Truck"
-                color = (255, 0, 0)
-            else:
+            if cls not in [CAR, BUS, TRUCK]:
                 continue
+
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            w = x2 - x1
+            h = y2 - y1
+            area = w * h
+            ratio = h / max(w, 1)
+
+            # FINAL DECISION LOGIC (UNCHANGED)
+            if cls == TRUCK and conf > 0.4:
+                label = "Truck"
+            elif cls == BUS and area > 0.02 * IMG_AREA:
+                label = "Truck"
+            elif area > 0.03 * IMG_AREA and ratio > 0.6:
+                label = "Truck"
+            else:
+                label = "Car"
+
+            color = (255, 0, 0) if label == "Truck" else (0, 255, 0)
 
             cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
             cv2.putText(
