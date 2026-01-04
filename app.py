@@ -4,18 +4,36 @@ import cv2
 import numpy as np
 import tempfile
 
-st.set_page_config(page_title="Vehicle Detection", layout="centered")
-st.title("🚗 Vehicle Detection using YOLOv8")
+# -------------------------------
+# PAGE CONFIG
+# -------------------------------
+st.set_page_config(
+    page_title="Vehicle Detection using YOLOv8",
+    layout="centered"
+)
 
+st.title("🚗 Vehicle Detection using YOLOv8")
+st.write("Upload an image to detect **Cars, Buses, and Trucks**")
+
+# -------------------------------
+# LOAD YOLO MODEL
+# -------------------------------
 @st.cache_resource
 def load_model():
     return YOLO("yolov8n.pt")
 
 model = load_model()
 
-uploaded_file = st.file_uploader("Upload an image", ["jpg", "png", "jpeg"])
+# -------------------------------
+# IMAGE UPLOAD
+# -------------------------------
+uploaded_file = st.file_uploader(
+    "Upload an image",
+    type=["jpg", "jpeg", "png"]
+)
 
-if uploaded_file:
+if uploaded_file is not None:
+    # Read image
     file_bytes = uploaded_file.read()
     np_img = np.frombuffer(file_bytes, np.uint8)
     img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
@@ -23,29 +41,49 @@ if uploaded_file:
 
     st.image(img, caption="Uploaded Image", use_container_width=True)
 
+    # Save to temp file for YOLO
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         tmp.write(file_bytes)
-        temp_path = tmp.name
+        img_path = tmp.name
 
-    results = model(temp_path)
+    # -------------------------------
+    # YOLO INFERENCE
+    # -------------------------------
+    results = model(img_path)
 
-    CAR, BUS, TRUCK = 2, 5, 7
+    # COCO class IDs
+    CAR = 2
+    BUS = 5
+    TRUCK = 7
 
+    # Draw detections
     for r in results:
         for box in r.boxes:
             cls = int(box.cls[0])
             x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-            if cls == CAR or cls == BUS:
-                label, color = "Car", (0, 255, 0)
+            if cls in [CAR, BUS]:
+                label = "Car"
+                color = (0, 255, 0)
             elif cls == TRUCK:
-                label, color = "Truck", (255, 0, 0)
+                label = "Truck"
+                color = (255, 0, 0)
             else:
                 continue
 
             cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(img, label, (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+            cv2.putText(
+                img,
+                label,
+                (x1, max(y1 - 10, 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                color,
+                2
+            )
 
+    # -------------------------------
+    # DISPLAY RESULT
+    # -------------------------------
     st.subheader("Detection Result")
     st.image(img, use_container_width=True)
