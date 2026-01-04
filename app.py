@@ -1,14 +1,14 @@
 import streamlit as st
-from ultralytics import YOLO
 import cv2
 import numpy as np
 import tempfile
+from ultralytics import YOLO
 
 # -------------------------------
-# PAGE CONFIG
+# STREAMLIT PAGE SETUP
 # -------------------------------
 st.set_page_config(
-    page_title="Car vs Truck Detection (YOLOv8)",
+    page_title="Car vs Truck Detection",
     layout="centered"
 )
 
@@ -16,7 +16,7 @@ st.title("🚗 Car vs Truck Detection using YOLOv8")
 st.write("Upload a traffic image to classify vehicles as **Car** or **Truck**")
 
 # -------------------------------
-# LOAD MODEL
+# LOAD YOLO MODEL
 # -------------------------------
 @st.cache_resource
 def load_model():
@@ -28,7 +28,7 @@ model = load_model()
 # IMAGE UPLOAD
 # -------------------------------
 uploaded_file = st.file_uploader(
-    "Upload traffic image",
+    "Upload Image",
     type=["jpg", "jpeg", "png"]
 )
 
@@ -47,7 +47,9 @@ if uploaded_file is not None:
         tmp.write(file_bytes)
         img_path = tmp.name
 
-    # YOLO inference
+    # -------------------------------
+    # YOLO INFERENCE
+    # -------------------------------
     results = model(img_path)
 
     # COCO class IDs
@@ -58,7 +60,7 @@ if uploaded_file is not None:
     IMG_AREA = img.shape[0] * img.shape[1]
 
     # -------------------------------
-    # DRAW DETECTIONS
+    # DRAW RESULTS
     # -------------------------------
     for r in results:
         for box in r.boxes:
@@ -74,7 +76,7 @@ if uploaded_file is not None:
             area = w * h
             ratio = h / max(w, 1)
 
-            # FINAL DECISION LOGIC (UNCHANGED)
+            # Decision logic
             if cls == TRUCK and conf > 0.4:
                 label = "Truck"
             elif cls == BUS and area > 0.02 * IMG_AREA:
@@ -98,7 +100,7 @@ if uploaded_file is not None:
             )
 
     # -------------------------------
-    # DISPLAY RESULT
+    # DISPLAY OUTPUT
     # -------------------------------
     st.subheader("Detection Result")
     st.image(img, use_container_width=True)
